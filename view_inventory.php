@@ -2610,7 +2610,7 @@
                 font-size: 0.9rem;
             }
         }
-    </style>
+    </style>   
 </head>
 <body>
     <!-- Mobile Menu Toggle -->
