@@ -2111,6 +2111,9 @@
             letter-spacing: 0.5px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+            white-space: nowrap; 
+            min-width: fit-content; 
+            display: inline-block; 
         }
 
         .status-badge.expired {
