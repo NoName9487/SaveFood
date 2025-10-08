@@ -1633,6 +1633,7 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
                                             <span>Quantity *</span>
                                         </label>
                                         <input type="text" id="quantity" name="quantity" class="form-input" placeholder="e.g., 2 cans, 500g, 1 dozen" required>
+                                        <small class="form-hint" id="quantity-hint">Must start with a number</small>
                                     </div>
                                     <div class="form-group">
                                         <label for="expiry_date">
@@ -1648,7 +1649,7 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
                                     <div class="form-group">
                                         <label for="storage_location">
                                             <i class="fas fa-box"></i>
-                                            <span>Storage Location</span>
+                                            <span>Storage Location *</span>
                                         </label>
                                         <select id="storage_location" name="storage_location" class="form-input" required oninvalid="this.setCustomValidity('Please select a storage location')" oninput="this.setCustomValidity('')">
                                             <option value="">Select Location</option>
@@ -2113,9 +2114,33 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
             document.getElementById('selected_food_item').value = item;
         }
 
+        // Real-time quantity validation
+        document.getElementById('quantity').addEventListener('input', function() {
+            const quantity = this.value.trim();
+            const hint = document.getElementById('quantity-hint');
+            
+            if (quantity === '') {
+                hint.textContent = 'Must start with a number';
+                hint.style.color = '#6b7280';
+            } else if (/^\d+/.test(quantity)) {
+                hint.textContent = '✓ Valid quantity format';
+                hint.style.color = '#10b981';
+            } else {
+                hint.textContent = '❌ Must start with a number (e.g., 1 can, 2 bottles)';
+                hint.style.color = '#ef4444';
+            }
+        });
+
         // Add item form submission
         document.getElementById('addItemForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // Client-side validation for quantity
+            const quantity = document.getElementById('quantity').value.trim();
+            if (!/^\d+/.test(quantity)) {
+                alert('Quantity must start with a number (e.g., "1 can", "2 bottles", "500g")');
+                return;
+            }
             
             const formData = new FormData(this);
             formData.append('action', 'add_item');
