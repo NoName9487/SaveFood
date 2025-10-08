@@ -922,6 +922,7 @@
             }
             
             // Set message
+            //
             messageElement.textContent = message;
             
             // Set type (error or success)
@@ -986,3 +987,4 @@
     </script>
 </body>
 </html>
+
