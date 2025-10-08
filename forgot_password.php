@@ -10,6 +10,7 @@
     $success = '';
 
     // Lightweight AJAX handlers for OTP verify/resend without full page refresh
+    // 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === '1') {
         header('Content-Type: application/json');
         $response = [ 'ok' => false, 'message' => 'Unknown request.' ];
@@ -340,5 +341,6 @@
     </div>
 </body>
 </html>
+
 
 
