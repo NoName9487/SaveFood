@@ -2198,6 +2198,9 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
                 hideSuccessPopup();
             }
         });
+
+        //
     </script>
 </body>
 </html>
+
