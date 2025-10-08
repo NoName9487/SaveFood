@@ -3915,7 +3915,7 @@
                     categoryFilter.appendChild(option);
                 });
             }
-            
+            //
             // Restore previous selection if it still exists
             if (currentValue && categories.includes(currentValue)) {
                 categoryFilter.value = currentValue;
@@ -3925,4 +3925,5 @@
         }
     </script>
 </body>
+
 </html>
