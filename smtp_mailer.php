@@ -88,9 +88,11 @@ class SMTPMailer {
 /**
  * Simple function to send email using Gmail SMTP
  */
+//
 function sendEmailViaSMTP($to, $subject, $htmlMessage, $fromName = 'SavePlate') {
     $config = require 'email_config.php';
     $mailer = new SMTPMailer($config);
     return $mailer->sendMail($to, $subject, $htmlMessage, $fromName);
 }
 ?>
+

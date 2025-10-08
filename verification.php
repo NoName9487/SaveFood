@@ -591,6 +591,7 @@
                             form.submit();
                         } else {
                             // Focus on the next empty field
+                            //
                             if (!digit1) document.getElementById('digit1').focus();
                             else if (!digit2) document.getElementById('digit2').focus();
                             else if (!digit3) document.getElementById('digit3').focus();
@@ -602,4 +603,5 @@
         });
     </script>
 </body>
+
 </html>

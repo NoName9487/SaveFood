@@ -1,7 +1,7 @@
 <?php
 // Email Configuration for Gmail SMTP
 // You need to update these with your Gmail credentials
-
+//
 return [
     'smtp_host' => 'smtp.gmail.com',          // Gmail SMTP server (NOT your email)
     'smtp_port' => 587,
@@ -31,3 +31,4 @@ Example:
 'from_email' => 'john.doe@gmail.com',
 */
 ?>
+
