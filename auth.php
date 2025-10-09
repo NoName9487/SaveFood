@@ -62,6 +62,7 @@ function requireAuth() {
 /**
  * Check if user has specific role/permission
  * You can extend this based on your user roles system
+ * Testing the database
  */
 function hasPermission($permission) {
     if (!isLoggedIn()) {
@@ -73,3 +74,4 @@ function hasPermission($permission) {
     return true;
 }
 ?>
+
