@@ -662,6 +662,7 @@
     </section>
     
     <!-- Why Choose Us Section -->
+    <!--testing-->
     <section class="why-choose-us" id="why-choose-us">
         <div class="container">
             <h2 class="section-title">Why Choose SavePlate</h2>
@@ -901,4 +902,5 @@
         });
     </script>
 </body>
+
 </html>
