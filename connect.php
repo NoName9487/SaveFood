@@ -59,6 +59,7 @@
     }
 
     // Initialize goals table
+    // Testing the database
     createGoalsTable();
 
     // Function to update goal progress when donations are made
@@ -362,4 +363,5 @@
             return false;
         }
     }
+
 ?>
