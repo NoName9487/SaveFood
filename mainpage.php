@@ -649,6 +649,7 @@
                     <h3>Food Analytics</h3>
                     <p>Track your food-saving progress with visual reports and insights.</p>
                     <button class="btn btn-primary explore-btn" style="margin-top: 15px;"> Explore More </button>
+                    //
                 </div>
                 
                 <div class="feature-card">
@@ -901,4 +902,5 @@
         });
     </script>
 </body>
+
 </html>
