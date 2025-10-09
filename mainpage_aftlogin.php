@@ -7,6 +7,7 @@ session_start();
 require_once 'connect.php'; // Include your database connection
 
 // Check if user is logged in
+// Check whether user is in database 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login_register.php");
     exit();
@@ -1942,4 +1943,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
     </script>
 </body>
+
 </html>
