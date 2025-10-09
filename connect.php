@@ -137,6 +137,7 @@
     }
 
     // Function to get current progress for a specific goal type (moved from dashboard)
+    //
     function getCurrentGoalProgress($pdo, $userId, $goalType) {
         try {
             switch ($goalType) {
@@ -362,4 +363,5 @@
             return false;
         }
     }
+
 ?>
