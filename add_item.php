@@ -1641,7 +1641,7 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
                                             <span>Expiry Date *</span>
                                         </label>
                                         <input type="date" id="expiry_date" name="expiry_date" class="form-input" required>
-                                        <small class="form-hint">Select when this item will expire</small>
+                                        <small class="form-hint" id="expiry-hint">Select when this item will expire</small>
                                     </div>
                                 </div>
 
@@ -2114,6 +2114,12 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
             document.getElementById('selected_food_item').value = item;
         }
 
+        // Set minimum date to today for expiry date
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('expiry_date').setAttribute('min', today);
+        });
+
         // Real-time quantity validation
         document.getElementById('quantity').addEventListener('input', function() {
             const quantity = this.value.trim();
@@ -2131,6 +2137,25 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
             }
         });
 
+        // Real-time expiry date validation
+        document.getElementById('expiry_date').addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+            const hint = document.getElementById('expiry-hint');
+            
+            if (this.value === '') {
+                hint.textContent = 'Select when this item will expire';
+                hint.style.color = '#6b7280';
+            } else if (selectedDate < today) {
+                hint.textContent = '❌ Expiry date cannot be in the past';
+                hint.style.color = '#ef4444';
+            } else {
+                hint.textContent = '✓ Valid expiry date';
+                hint.style.color = '#10b981';
+            }
+        });
+
         // Add item form submission
         document.getElementById('addItemForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -2140,6 +2165,20 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
             if (!/^\d+/.test(quantity)) {
                 alert('Quantity must start with a number (e.g., "1 can", "2 bottles", "500g")');
                 return;
+            }
+            
+            // Client-side validation for expiry date
+            const expiryDate = document.getElementById('expiry_date').value;
+            if (expiryDate) {
+                const selectedDate = new Date(expiryDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+                
+                if (selectedDate < today) {
+                    alert('❌ Error: Expiry date cannot be in the past. Please select today or a future date.');
+                    document.getElementById('expiry_date').focus();
+                    return;
+                }
             }
             
             const formData = new FormData(this);
@@ -2198,9 +2237,6 @@ $__uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
                 hideSuccessPopup();
             }
         });
-
-        //
     </script>
 </body>
 </html>
-
