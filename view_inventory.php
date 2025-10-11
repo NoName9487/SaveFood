@@ -2111,9 +2111,9 @@
             letter-spacing: 0.5px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
-            white-space: nowrap; 
-            min-width: fit-content; 
-            display: inline-block; 
+            white-space: nowrap;
+            min-width: fit-content;
+            display: inline-block;
         }
 
         .status-badge.expired {
@@ -2613,7 +2613,7 @@
                 font-size: 0.9rem;
             }
         }
-    </style>   
+    </style>
 </head>
 <body>
     <!-- Mobile Menu Toggle -->
@@ -3160,8 +3160,7 @@
                             
                             <div class="form-group">
                                 <label><i class="fas fa-calendar-alt"></i> Expiry Date</label>
-                                <input type="date" name="expiry_date" id="edit_expiry_date" required>
-                            </div>
+                                <input type="date" name="expiry_date" id="edit_expiry_date" required min="<?php echo date('Y-m-d'); ?>">                            </div>
                             
                             <div class="form-group">
                                 <label><i class="fas fa-box"></i> Storage Location</label>
@@ -3828,6 +3827,19 @@
                 closeExpiredItemPopup();
             }
         }
+
+        // ============ ENFORCE MIN DATE FOR EXPIRY EDIT ==============
+        document.addEventListener('DOMContentLoaded', function() {
+            var expiryInput = document.getElementById('edit_expiry_date');
+            if(expiryInput){
+                var today = new Date();
+                var year = today.getFullYear();
+                var month = String(today.getMonth() + 1).padStart(2, '0');
+                var day = String(today.getDate()).padStart(2, '0');
+                var minDate = year + '-' + month + '-' + day;
+                expiryInput.setAttribute('min', minDate);
+            }
+        });
     </script>
 </body>
 </html>
