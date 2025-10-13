@@ -2519,14 +2519,14 @@
                     </div>
                     <div class="pickup-info">
                         <h3>Arrange Your Pickup</h3>
-                        <p>Please provide your contact information and preferred pickup time to coordinate with the donor.</p>
+                        <p>Please provide your contact information to coordinate with the donor.</p>
                     </div>
                 </div>
                 
                 <form id="pickupMessageForm">
                     <input type="hidden" id="pickup_donation_id" name="donation_id">
                     
-                    <div class="form-group">
+                   <!-- <div class="form-group">
                         <label for="pickup_date"><i class="fas fa-calendar"></i> Preferred Pickup Date & Time *</label>
                         <input type="datetime-local" id="pickup_date" name="pickup_date" class="form-control" required>
                     </div>
@@ -2539,11 +2539,11 @@
                     <div class="form-group">
                         <label for="claimer_phone"><i class="fas fa-phone"></i> Your Phone Number *</label>
                         <input type="tel" id="claimer_phone" name="claimer_phone" class="form-control" required placeholder="Enter your phone number">
-                    </div>
+                    </div>!-->
                     
                     <div class="form-group">
-                        <label for="pickup_message"><i class="fas fa-comment"></i> Message to Donor</label>
-                        <textarea id="pickup_message" name="pickup_message" class="form-control" rows="3" placeholder="Any special requests or questions for the donor..."></textarea>
+                        <label for="pickup_message"><i class="fas fa-comment"></i> Please enter your phone number for donor to contact *</label>
+                        <textarea id="pickup_message" name="pickup_message" class="form-control" rows="3" placeholder="Please enter your phone number" required></textarea>
                     </div>
                     
                     <div class="form-actions">
@@ -3915,7 +3915,7 @@
                     categoryFilter.appendChild(option);
                 });
             }
-            //
+            
             // Restore previous selection if it still exists
             if (currentValue && categories.includes(currentValue)) {
                 categoryFilter.value = currentValue;
@@ -3925,5 +3925,4 @@
         }
     </script>
 </body>
-
 </html>
