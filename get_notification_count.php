@@ -68,8 +68,9 @@ $unread_count = 0;
 foreach ($notifications as $notification) {
     if (!$notification['is_read']) $unread_count++;
 }
-
+//
 // Return JSON response
 header('Content-Type: application/json');
 echo json_encode(['count' => $unread_count]);
 ?>
+
