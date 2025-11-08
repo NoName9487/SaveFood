@@ -1,5 +1,450 @@
 <?php
 
+session_start();
+require_once 'connect.php';
+
+    // Check if user is logged in
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: login_register.php");
+        exit();
+    }
+
+    // Get user data from database
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("SELECT id, username, email, created_at, household_size, address FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$userData) {
+            header("Location: login_register.php");
+            exit();
+        }
+        
+        $household_size = $userData['household_size'] ?? '';
+        $address = $userData['address'] ?? '';
+        
+    } catch (Exception $e) {
+        die("Error retrieving user data: " . $e->getMessage());
+    }
+
+    // Process due meal reminders -> notifications (send as in-app notification)
+    try {
+        $dueStmt = $pdo->prepare("SELECT id, meal_plan_id, meal_type, message, CONCAT(reminder_date, ' ', reminder_time) AS remind_at FROM meal_reminders WHERE user_id = ? AND status = 'pending' AND CONCAT(reminder_date, ' ', reminder_time) <= NOW()");
+        $dueStmt->execute([$_SESSION['user_id']]);
+        $dueReminders = $dueStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($dueReminders)) {
+            // Detect optional related_item column on notifications
+            $hasRelated = false;
+            try {
+                $colChk = $pdo->query("SHOW COLUMNS FROM notifications LIKE 'related_item'");
+                $hasRelated = $colChk && $colChk->rowCount() > 0;
+            } catch (Exception $ignore) {}
+
+            foreach ($dueReminders as $rem) {
+                $title = 'Meal Reminder';
+                $msg = $rem['message'] ?: ('It\'s time for your ' . ($rem['meal_type'] ?? 'meal') . '!');
+                if ($hasRelated) {
+                    $ins = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, related_item, is_read, created_at) VALUES (?, 'meal_reminder', ?, ?, ?, 0, NOW())");
+                    $ins->execute([$_SESSION['user_id'], $title, $msg, $rem['meal_type']]);
+                } else {
+                    $ins = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, is_read, created_at) VALUES (?, 'meal_reminder', ?, ?, 0, NOW())");
+                    $ins->execute([$_SESSION['user_id'], $title, $msg]);
+                }
+                $upd = $pdo->prepare("UPDATE meal_reminders SET status = 'sent' WHERE id = ?");
+                $upd->execute([$rem['id']]);
+            }
+        }
+    } catch (Exception $e) {
+        // Non-fatal
+    }
+
+    // Handle profile update
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+        $newName = $_POST['name'];
+        $newEmail = $_POST['email'];
+        $newHouseholdSize = $_POST['household_size'];
+        $newAddress = $_POST['address'];
+
+        $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ?, household_size = ?, address = ? WHERE id = ?");
+        $stmt->execute([$newName, $newEmail, $newHouseholdSize, $newAddress, $_SESSION['user_id']]);
+        // Profile updated successfully
+
+        // Refresh user data
+        $stmt = $pdo->prepare("SELECT id, username, email, created_at, household_size, address FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $household_size = $userData['household_size'] ?? '';
+        $address = $userData['address'] ?? '';
+    }
+
+    // Handle password change
+    if (isset($_POST['change_password'])) {
+        $current_password = $_POST['current_password'] ?? '';
+        $new_password = $_POST['new_password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+            // All password fields are required
+        } elseif ($new_password !== $confirm_password) {
+            // New passwords do not match
+        } elseif (strlen($new_password) < 6) {
+            // New password must be at least 6 characters long
+        } else {
+            try {
+                $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                $passwordData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($passwordData && isset($passwordData['password']) && password_verify($current_password, $passwordData['password'])) {
+                    $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+                    $update = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                    $update->execute([$hashed, $_SESSION['user_id']]);
+                    // Password changed successfully
+                } else {
+                    // Current password is incorrect
+                }
+            } catch (Exception $e) {
+                // Error changing password
+            }
+        }
+    }
+    
+    // Handle logout
+    if (isset($_POST['logout'])) {
+        session_destroy();
+        header("Location: mainpage_aftlogin.php");
+        exit();
+    }
+
+
+
+
+    $current_page = basename($_SERVER['PHP_SELF']);
+
+    // Get user's current inventory
+    try {
+        // First, check if the food_inventory table exists
+        $table_check = $pdo->query("SHOW TABLES LIKE 'food_inventory'");
+        if ($table_check->rowCount() == 0) {
+            // Create the food_inventory table if it doesn't exist
+            $create_table = $pdo->exec("
+                CREATE TABLE IF NOT EXISTS food_inventory (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    item_name VARCHAR(255) NOT NULL,
+                    quantity VARCHAR(100) NOT NULL,
+                    reserved_quantity INT DEFAULT 0,
+                    expiry_date DATE NOT NULL,
+                    category VARCHAR(100),
+                    storage_location VARCHAR(100),
+                    notes TEXT,
+                    status VARCHAR(50) DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_expiry_date (expiry_date)
+                )
+            ");
+        }
+
+        // Ensure reserved_quantity column exists (for older schemas)
+        try {
+            $colCheck = $pdo->prepare("SHOW COLUMNS FROM food_inventory LIKE 'reserved_quantity'");
+            $colCheck->execute();
+            if ($colCheck->rowCount() === 0) {
+                $pdo->exec("ALTER TABLE food_inventory ADD COLUMN reserved_quantity INT DEFAULT 0");
+            }
+        } catch (Exception $e2) {
+            // Ignore; will surface in SELECT if truly missing
+        }
+        
+        $inventory_stmt = $pdo->prepare("
+            SELECT id, item_name, quantity, COALESCE(reserved_quantity,0) AS reserved_quantity, expiry_date, category, storage_location 
+            FROM food_inventory 
+            WHERE user_id = ? AND quantity > 0 AND (expiry_date IS NULL OR expiry_date > CURDATE())
+            ORDER BY expiry_date ASC, item_name ASC
+        ");
+        $inventory_stmt->execute([$_SESSION['user_id']]);
+        $inventory_items = $inventory_stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+    } catch (Exception $e) {
+        $inventory_items = [];
+        error_log("Error with inventory: " . $e->getMessage());
+    }
+
+    // Get current week's dates with navigation support
+    $current_date = new DateTime();
+    $week_offset = isset($_GET['week_offset']) ? intval($_GET['week_offset']) : 0; // number of weeks to shift
+    $week_start = clone $current_date;
+    $week_start->modify('monday this week');
+    if ($week_offset !== 0) {
+        $week_start->modify(($week_offset > 0 ? '+' : '') . $week_offset . ' week');
+    }
+    $week_dates = [];
+    for ($i = 0; $i < 7; $i++) {
+        $date = clone $week_start;
+        $date->modify("+$i days");
+        $week_dates[] = $date;
+    }
+    // Week range for scoping meal plans
+    $week_start_date = $week_dates[0]->format('Y-m-d');
+    $week_end_date = $week_dates[6]->format('Y-m-d');
+
+    // Handle meal planning form submission
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_meal_plan'])) {
+        try {
+            $day = $_POST['day'] ?? '';
+            $meal_type = $_POST['meal_type'] ?? '';
+            $meal_name = $_POST['meal_name'] ?? '';
+            $ingredients = $_POST['ingredients'] ?? '';
+            $notes = $_POST['notes'] ?? '';
+            $selected_ingredients = $_POST['selected_ingredients'] ?? [];
+            $ingredient_quantities = $_POST['ingredient_quantities'] ?? [];
+            $validation_failed = false;
+            // Prevent meal plan creation if no ingredient is selected
+            if (empty($selected_ingredients)) {
+                $error_message = "Please select at least one ingredient before creating the meal plan.";
+                $validation_failed = true;
+            }
+            // Build a readable ingredients string from selected inventory items
+            $ingredients_text = $ingredients;
+            try {
+                if (!empty($selected_ingredients)) {
+                    $placeholders = implode(',', array_fill(0, count($selected_ingredients), '?'));
+                    $nameStmt = $pdo->prepare("SELECT id, item_name FROM food_inventory WHERE id IN ($placeholders)");
+                    $nameStmt->execute($selected_ingredients);
+                    $rows = $nameStmt->fetchAll(PDO::FETCH_ASSOC);
+                    $idToName = [];
+                    foreach ($rows as $r) { $idToName[$r['id']] = $r['item_name']; }
+                    $parts = [];
+                    foreach ($selected_ingredients as $idx => $invId) {
+                        $qty = isset($ingredient_quantities[$idx]) && is_numeric($ingredient_quantities[$idx]) ? (float)$ingredient_quantities[$idx] : 1;
+                        // Preserve integers (e.g., 20 -> "20") and trim only insignificant decimal zeros
+                        if (is_finite($qty) && floor($qty) == $qty) {
+                            $qtyStr = (string)(int)$qty;
+                        } else {
+                            $formatted = number_format($qty, 2, '.', ''); // e.g., 2.50
+                            $formatted = rtrim($formatted, '0'); // -> 2.
+                            $qtyStr = rtrim($formatted, '.');   // -> 2
+                        }
+                        $itemName = $idToName[$invId] ?? ("Item #" . $invId);
+                        $parts[] = $itemName . ' x ' . ($qtyStr === '' ? '1' : $qtyStr);
+                    }
+                    if (!empty($parts)) { $ingredients_text = implode(', ', $parts); }
+                }
+            } catch (Exception $e) { /* ignore, fallback to raw $ingredients */ }
+            
+            if (!$validation_failed && $day && $meal_type && $meal_name) {
+                // Prevent adding meal plans for days before today
+                $selectedDate = date('Y-m-d', strtotime($week_start_date . ' ' . $day));
+                $todayOnly = date('Y-m-d');
+                if ($selectedDate < $todayOnly) {
+                    $error_message = "You cannot add a meal plan for a past day.";
+                } else {
+                // Prevent overwrite if a plan already exists for this slot
+                $existsStmt = $pdo->prepare("SELECT id FROM meal_plans WHERE user_id = ? AND day_of_week = ? AND meal_type = ? AND DATE(created_at) BETWEEN ? AND ? LIMIT 1");
+                $existsStmt->execute([$_SESSION['user_id'], $day, $meal_type, $week_start_date, $week_end_date]);
+                $existingId = $existsStmt->fetchColumn();
+                if ($existingId) {
+                    $error_message = "A meal plan for this slot already exists. Reset all plans to change it.";
+                } else {
+                $pdo->beginTransaction();
+                
+                // Insert or update meal plan (immediately confirmed)
+                $stmt = $pdo->prepare("
+                    INSERT INTO meal_plans (user_id, day_of_week, meal_type, meal_name, ingredients, notes, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
+                ");
+                $stmt->execute([$_SESSION['user_id'], $day, $meal_type, $meal_name, $ingredients_text, $notes]);
+                
+                $meal_plan_id = $pdo->lastInsertId();
+                
+                // Link selected inventory items to this meal plan
+                $stmt = $pdo->prepare("DELETE FROM meal_plan_ingredients WHERE meal_plan_id = ?");
+                $stmt->execute([$meal_plan_id]);
+
+                if (!empty($selected_ingredients)) {
+                    $link_stmt = $pdo->prepare("INSERT INTO meal_plan_ingredients (meal_plan_id, inventory_item_id, quantity_required) VALUES (?, ?, ?)");
+                    foreach ($selected_ingredients as $index => $inventory_id) {
+                        $quantity = isset($ingredient_quantities[$index]) && is_numeric($ingredient_quantities[$index]) ? (float)$ingredient_quantities[$index] : 1;
+                        if ($quantity > 0) {
+                            $link_stmt->execute([$meal_plan_id, $inventory_id, $quantity]);
+                            // Reserve quantity instead of deducting from main inventory
+                            $upd = $pdo->prepare("UPDATE food_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ? AND user_id = ?");
+                            $upd->execute([$quantity, $inventory_id, $_SESSION['user_id']]);
+                        }
+                    }
+                }
+                
+                // Create a meal reminder immediately for this slot (same behavior as weekly confirm)
+                try {
+                    $reminder_times = [ 'breakfast' => '08:00:00', 'lunch' => '13:00:00', 'dinner' => '19:00:00' ];
+                    $reminder_time = $reminder_times[$meal_type] ?? '12:00:00';
+                    // Compute next occurrence of selected day within/after the displayed week start
+                    $targetDate = date('Y-m-d', strtotime($week_start_date . ' ' . $day));
+                    if ($targetDate < $week_start_date) { $targetDate = date('Y-m-d', strtotime('next ' . $day, strtotime($week_start_date))); }
+
+                    $rcheck = $pdo->prepare("SELECT id FROM meal_reminders WHERE meal_plan_id = ? LIMIT 1");
+                    $rcheck->execute([$meal_plan_id]);
+                    if (!$rcheck->fetchColumn()) {
+                        $rstmt = $pdo->prepare("INSERT INTO meal_reminders (user_id, meal_plan_id, reminder_date, reminder_time, meal_type, message, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')");
+                        $message = "Don't forget: {$meal_name} for {$meal_type}!";
+                        $rstmt->execute([$_SESSION['user_id'], $meal_plan_id, $targetDate, $reminder_time, $meal_type, $message]);
+                    }
+                } catch (Exception $ignore) {}
+
+                $pdo->commit();
+                $success_message = "Meal plan saved and ingredients reserved!";
+                header("Location: meal_plan1.php" . (isset($week_offset) ? ('?week_offset=' . urlencode((string)$week_offset)) : ''));
+                exit();
+                }
+                }
+            }
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_message = "Error saving meal plan: " . $e->getMessage();
+        }
+    }
+
+    // Handle weekly confirmation (reserve ingredients and schedule reminders)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_weekly_plan'])) {
+        try {
+            $pdo->beginTransaction();
+
+            // Fetch all confirmed meal plans for this user within the displayed week
+            $stmt = $pdo->prepare("SELECT id, day_of_week, meal_type, meal_name FROM meal_plans WHERE user_id = ? AND status = 'confirmed' AND DATE(created_at) BETWEEN ? AND ?");
+            $stmt->execute([$_SESSION['user_id'], $week_start_date, $week_end_date]);
+            $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($plans as $plan) {
+                // Get ingredients for this meal plan
+                $istmt = $pdo->prepare("\n                SELECT mpi.inventory_item_id, mpi.quantity_required\n                FROM meal_plan_ingredients mpi\n                WHERE mpi.meal_plan_id = ?\n            ");
+                $istmt->execute([$plan['id']]);
+                $ingredients = $istmt->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($ingredients as $ing) {
+                    // Create reservation if not already reserved for this plan
+                    $check = $pdo->prepare("SELECT id FROM inventory_reservations WHERE inventory_item_id = ? AND meal_plan_id = ? AND status = 'active' LIMIT 1");
+                    $check->execute([$ing['inventory_item_id'], $plan['id']]);
+                    if (!$check->fetchColumn()) {
+                        $ins = $pdo->prepare("INSERT INTO inventory_reservations (inventory_item_id, meal_plan_id, reserved_quantity, reservation_date, status) VALUES (?, ?, ?, CURDATE(), 'active')");
+                        $ins->execute([$ing['inventory_item_id'], $plan['id'], $ing['quantity_required']]);
+                        // Update reserved quantity on inventory
+                        $upd = $pdo->prepare("UPDATE food_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?");
+                        $upd->execute([$ing['quantity_required'], $ing['inventory_item_id']]);
+                    }
+                }
+
+                // Schedule reminder
+                $reminder_times = [ 'breakfast' => '08:00:00', 'lunch' => '13:00:00', 'dinner' => '19:00:00' ];
+                $reminder_time = $reminder_times[$plan['meal_type']] ?? '12:00:00';
+                $reminder_date = date('Y-m-d', strtotime('next ' . $plan['day_of_week']));
+
+                $rcheck = $pdo->prepare("SELECT id FROM meal_reminders WHERE meal_plan_id = ? LIMIT 1");
+                $rcheck->execute([$plan['id']]);
+                if (!$rcheck->fetchColumn()) {
+                    $rstmt = $pdo->prepare("INSERT INTO meal_reminders (user_id, meal_plan_id, reminder_date, reminder_time, meal_type, message, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')");
+                    $message = "Don't forget: {$plan['meal_name']} for {$plan['meal_type']} tomorrow!";
+                    $rstmt->execute([$_SESSION['user_id'], $plan['id'], $reminder_date, $reminder_time, $plan['meal_type'], $message]);
+                }
+            }
+
+            $pdo->commit();
+            $success_message = 'Weekly meal plan confirmed! Reservations made and reminders scheduled.';
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_message = 'Error confirming meal plan: ' . $e->getMessage();
+        }
+    }
+
+    // Handle reset meal plans
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_meal_plans'])) {
+        try {
+            $pdo->beginTransaction();
+            
+            // Get all meal plans for this user
+            $stmt = $pdo->prepare("SELECT id FROM meal_plans WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $meal_plan_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            if (!empty($meal_plan_ids)) {
+                // Release reserved quantities and delete reservations
+                $placeholders = str_repeat('?,', count($meal_plan_ids) - 1) . '?';
+                
+                // Delete ingredient links
+                $stmt = $pdo->prepare("DELETE FROM meal_plan_ingredients WHERE meal_plan_id IN ($placeholders)");
+                $stmt->execute($meal_plan_ids);
+
+                // Delete meal reminders
+                $stmt = $pdo->prepare("DELETE FROM meal_reminders WHERE meal_plan_id IN ($placeholders)");
+                $stmt->execute($meal_plan_ids);
+
+                // Delete reservations tied to these plans
+                $stmt = $pdo->prepare("DELETE FROM inventory_reservations WHERE meal_plan_id IN ($placeholders)");
+                $stmt->execute($meal_plan_ids);
+
+                // Delete meal plans
+                $stmt = $pdo->prepare("DELETE FROM meal_plans WHERE id IN ($placeholders)");
+                $stmt->execute($meal_plan_ids);
+            }
+
+            // Hard reset: clear any remaining reservations for this user's inventory and restore quantities
+            $stmt = $pdo->prepare("DELETE FROM inventory_reservations WHERE inventory_item_id IN (SELECT id FROM food_inventory WHERE user_id = ?)");
+            $stmt->execute([$_SESSION['user_id']]);
+
+            // Clear all reserved quantities (main quantity already represents total available)
+            $stmt = $pdo->prepare("UPDATE food_inventory SET reserved_quantity = 0 WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            
+            $pdo->commit();
+            $success_message = "All plans reset and reserved ingredients returned to inventory!";
+            header("Location: meal_plan1.php" . (isset($week_offset) ? ('?week_offset=' . urlencode((string)$week_offset)) : ''));
+            exit();
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_message = "Error resetting meal plans: " . $e->getMessage();
+        }
+    }
+
+    // Get existing meal plans for the week
+    try {
+        $meal_plans_stmt = $pdo->prepare(
+            "
+            SELECT id, day_of_week, meal_type, meal_name, ingredients, notes, status 
+            FROM meal_plans 
+            WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ? 
+            ORDER BY day_of_week, meal_type
+        "
+        );
+        $meal_plans_stmt->execute([$_SESSION['user_id'], $week_start_date, $week_end_date]);
+        $meal_plans = [];
+        while ($row = $meal_plans_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $meal_plans[$row['day_of_week']][$row['meal_type']] = $row;
+        }
+        
+        // Draft counting removed
+        $draft_count = 0;
+    } catch (Exception $e) {
+        $meal_plans = [];
+        $draft_count = 0;
+    }
+
+    // Define $generic_recipes so it is always available for modal and anywhere else
+    if (!isset($generic_recipes)) {
+        $generic_recipes = [
+            [ 'name' => 'Simple Omelette', 'ingredients' => ['Eggs', 'Salt', 'Pepper', 'Oil/Butter'] ],
+            [ 'name' => 'Garlic Butter Pasta', 'ingredients' => ['Pasta', 'Garlic', 'Butter/Oil', 'Salt'] ],
+            [ 'name' => 'Fried Rice', 'ingredients' => ['Rice', 'Egg', 'Soy Sauce', 'Oil'] ],
+            [ 'name' => 'Tomato Toast', 'ingredients' => ['Bread', 'Tomato', 'Salt', 'Olive Oil'] ],
+            [ 'name' => 'Veggie Stir-fry', 'ingredients' => ['Any Vegetables', 'Garlic', 'Soy Sauce', 'Oil'] ],
+        ];
+    }
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1064,13 +1509,6 @@
                                 <i class="fas fa-search"></i>
                             </div>
                             <h3 class="no-results-title">No meal plans found</h3>
-                            <p class="no-results-subtitle">Try searching for:</p>
-                            <ul class="no-results-suggestions">
-                                <li>Meal names (e.g., "pasta", "salad")</li>
-                                <li>Days (e.g., "monday", "thursday")</li>
-                                <li>Meal types (e.g., "breakfast", "lunch")</li>
-                                <li>Ingredients (e.g., "salmon", "chicken")</li>
-                            </ul>
                         </div>
                     `;
                     plansList.appendChild(noResultsMsg);
