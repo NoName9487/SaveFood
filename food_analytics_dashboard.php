@@ -8,7 +8,7 @@
         exit();
     }
 
-    // Get user data from database
+    // Get the user data from the database
     try {
         $pdo = getConnection();
         $stmt = $pdo->prepare("SELECT id, username, email, created_at, household_size, address FROM users WHERE id = ?");
@@ -27,7 +27,7 @@
         die("Error retrieving user data: " . $e->getMessage());
     }
 
-    // Handle profile update
+    // Handle user's profile update
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $newName = $_POST['name'];
         $newEmail = $_POST['email'];
@@ -38,7 +38,7 @@
         $stmt->execute([$newName, $newEmail, $newHouseholdSize, $newAddress, $_SESSION['user_id']]);
         // Profile updated successfully
 
-        // Refresh user data
+        // Refresh the user data
         $stmt = $pdo->prepare("SELECT id, username, email, created_at, household_size, address FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $userData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -47,7 +47,7 @@
         $address = $userData['address'] ?? '';
     }
 
-    // Handle password change
+    // Handle user's password change
     if (isset($_POST['change_password'])) {
         $current_password = $_POST['current_password'] ?? '';
         $new_password = $_POST['new_password'] ?? '';
@@ -79,23 +79,23 @@
         }
     }
     
-    // Handle logout
+    // Handle the logout function
     if (isset($_POST['logout'])) {
         session_destroy();
         header("Location: mainpage_aftlogin.php");
         exit();
     }
 
-    // Get analytics data
+    // Get analytics data from database
     $analyticsData = getAnalyticsData($pdo, $_SESSION['user_id']);
     
     // Sync goal progress with actual database data
     syncGoalProgress($pdo, $_SESSION['user_id']);
     
-    // Get user goals
+    // Get the user goals
     $userGoals = getUserGoals($pdo, $_SESSION['user_id']);
 
-    // Handle goal actions
+    // Handle the goal actions
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['action'])) {
             if ($_POST['action'] === 'save_goal') {
@@ -3687,4 +3687,5 @@
         }
     </script>
 </body>
+
 </html>
