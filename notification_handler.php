@@ -292,7 +292,7 @@
             echo json_encode(['success' => false, 'message' => 'Failed to reject claim']);
         }
     }
-
+//
     function handleCreateWelcomeNotification($pdo, $userId) {
         try {
             // Check if user already has a welcome notification
@@ -353,5 +353,6 @@
         }
     }
 ?>
+
 
 
