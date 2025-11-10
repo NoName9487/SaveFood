@@ -86,7 +86,7 @@
         exit();
     }
 
-    // Get analytics data from database
+    // Get the analytics data from database
     $analyticsData = getAnalyticsData($pdo, $_SESSION['user_id']);
     
     // Sync goal progress with actual database data
@@ -3689,3 +3689,4 @@
 </body>
 
 </html>
+
