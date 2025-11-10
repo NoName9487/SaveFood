@@ -4800,39 +4800,12 @@ require_once 'connect.php';
                     </div>
                 </div>
                 
-                <!-- Move and wrap the generic recipes table in a toggle-based div, hidden by default -->
-                <div id="recipes-toggle-section" style="display:none; margin-bottom: 20px;">
-                    <div class="table-container" style="margin-top: 10px;">
-                        <h3 style="margin: 10px 0 16px 4px; color: #2C3E50;"><i class="fas fa-utensils"></i> Suggested Generic Recipes</h3>
-                        <table class="inventory-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 30%;">Meal Name</th>
-                                    <th>Ingredients</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($generic_recipes as $rec): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($rec['name']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars(implode(', ', $rec['ingredients'])); ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
                 <div class="form-group">
                     <label class="form-label" for="notes">Notes</label>
                     <textarea class="form-textarea" id="notes" name="notes" placeholder="Any additional notes or cooking instructions..."></textarea>
                 </div>
                 
-                <div class="form-actions" style="display: flex; align-items: center; gap: 12px;">
-                    <!-- Utensils icon to toggle generic recipes (now left of Cancel) -->
-                    <button type="button" class="btn" style="padding: 6px 10px; background: none; color: #4a5568; font-size: 1.3em;" onclick="toggleRecipes()" title="Show suggested recipes">
-                        <i class="fas fa-utensils"></i>
-                    </button>
+                <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeMealModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Confirm and Plan</button>
                 </div>
@@ -4964,7 +4937,7 @@ require_once 'connect.php';
         <!-- Current Inventory -->
         <div class="inventory-container">
             <div class="inventory-header">
-                <h2 class="inventory-title"><i class="fas fa-list"></i> Your Available Ingredients </h2>
+                <h2 class="inventory-title"><i class="fas fa-list"></i> Your Current Inventory</h2>
                 <a href="add_item.php" class="btn btn-primary add-item-btn"><i class="fas fa-plus"></i> Add New Item</a>
             </div>
             
@@ -4972,6 +4945,36 @@ require_once 'connect.php';
                 <div style="text-align: center; padding: 40px; color: #6c757d;">
                     <i class="fas fa-shopping-cart" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
                     <p>No items in your inventory. <a href="/bit216_assignment/add_item.php">Add some items</a> to start meal planning!</p>
+                </div>
+
+                <?php
+                    // Generic fallback recipes shown when inventory is empty
+                    $generic_recipes = [
+                        [ 'name' => 'Simple Omelette', 'ingredients' => ['Eggs', 'Salt', 'Pepper', 'Oil/Butter'] ],
+                        [ 'name' => 'Garlic Butter Pasta', 'ingredients' => ['Pasta', 'Garlic', 'Butter/Oil', 'Salt'] ],
+                        [ 'name' => 'Fried Rice', 'ingredients' => ['Rice', 'Egg', 'Soy Sauce', 'Oil'] ],
+                        [ 'name' => 'Tomato Toast', 'ingredients' => ['Bread', 'Tomato', 'Salt', 'Olive Oil'] ],
+                        [ 'name' => 'Veggie Stir-fry', 'ingredients' => ['Any Vegetables', 'Garlic', 'Soy Sauce', 'Oil'] ],
+                    ];
+                ?>
+                <div class="table-container" style="margin-top: 10px;">
+                    <h3 style="margin: 10px 0 16px 4px; color: #2C3E50;"><i class="fas fa-utensils"></i> Suggested Generic Recipes</h3>
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Meal Name</th>
+                                <th>Ingredients</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($generic_recipes as $rec): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($rec['name']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars(implode(', ', $rec['ingredients'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             <?php else: ?>
                 <div class="table-container">
@@ -5651,15 +5654,6 @@ require_once 'connect.php';
                 }, 300);
             });
         }, 5000);
-
-        function toggleRecipes() {
-            var recipesDiv = document.getElementById('recipes-toggle-section');
-            if (recipesDiv.style.display === 'none' || recipesDiv.style.display === '') {
-                recipesDiv.style.display = 'block';
-            } else {
-                recipesDiv.style.display = 'none';
-            }
-        }
     </script>
 </body>
 </html>
