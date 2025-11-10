@@ -163,7 +163,7 @@ require_once 'connect.php';
         $inventory_stmt = $pdo->prepare("
             SELECT id, item_name, quantity, COALESCE(reserved_quantity,0) AS reserved_quantity, expiry_date, category, storage_location 
             FROM food_inventory 
-            WHERE user_id = ? AND quantity > 0 
+            WHERE user_id = ? AND quantity > 0 AND (expiry_date IS NULL OR expiry_date > CURDATE())
             ORDER BY expiry_date ASC, item_name ASC
         ");
         $inventory_stmt->execute([$_SESSION['user_id']]);
@@ -202,6 +202,12 @@ require_once 'connect.php';
             $notes = $_POST['notes'] ?? '';
             $selected_ingredients = $_POST['selected_ingredients'] ?? [];
             $ingredient_quantities = $_POST['ingredient_quantities'] ?? [];
+            $validation_failed = false;
+            // Prevent meal plan creation if no ingredient is selected
+            if (empty($selected_ingredients)) {
+                $error_message = "Please select at least one ingredient before creating the meal plan.";
+                $validation_failed = true;
+            }
             // Build a readable ingredients string from selected inventory items
             $ingredients_text = $ingredients;
             try {
@@ -230,7 +236,7 @@ require_once 'connect.php';
                 }
             } catch (Exception $e) { /* ignore, fallback to raw $ingredients */ }
             
-            if ($day && $meal_type && $meal_name) {
+            if (!$validation_failed && $day && $meal_type && $meal_name) {
                 // Prevent adding meal plans for days before today
                 $selectedDate = date('Y-m-d', strtotime($week_start_date . ' ' . $day));
                 $todayOnly = date('Y-m-d');
@@ -424,6 +430,17 @@ require_once 'connect.php';
     } catch (Exception $e) {
         $meal_plans = [];
         $draft_count = 0;
+    }
+
+    // Define $generic_recipes so it is always available for modal and anywhere else
+    if (!isset($generic_recipes)) {
+        $generic_recipes = [
+            [ 'name' => 'Simple Omelette', 'ingredients' => ['Eggs', 'Salt', 'Pepper', 'Oil/Butter'] ],
+            [ 'name' => 'Garlic Butter Pasta', 'ingredients' => ['Pasta', 'Garlic', 'Butter/Oil', 'Salt'] ],
+            [ 'name' => 'Fried Rice', 'ingredients' => ['Rice', 'Egg', 'Soy Sauce', 'Oil'] ],
+            [ 'name' => 'Tomato Toast', 'ingredients' => ['Bread', 'Tomato', 'Salt', 'Olive Oil'] ],
+            [ 'name' => 'Veggie Stir-fry', 'ingredients' => ['Any Vegetables', 'Garlic', 'Soy Sauce', 'Oil'] ],
+        ];
     }
 ?>
 
@@ -5566,13 +5583,6 @@ require_once 'connect.php';
                                 <i class="fas fa-search"></i>
                             </div>
                             <h3 class="no-results-title">No meal plans found</h3>
-                            <p class="no-results-subtitle">Try searching for:</p>
-                            <ul class="no-results-suggestions">
-                                <li>Meal names (e.g., "pasta", "salad")</li>
-                                <li>Days (e.g., "monday", "thursday")</li>
-                                <li>Meal types (e.g., "breakfast", "lunch")</li>
-                                <li>Ingredients (e.g., "salmon", "chicken")</li>
-                            </ul>
                         </div>
                     `;
                     plansList.appendChild(noResultsMsg);
