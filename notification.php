@@ -1010,7 +1010,7 @@ require_once 'connect.php';
             color: #666;
             margin: 0;
         }
-
+//
         .meal-cards {
             display: flex;
             flex-direction: column;
@@ -3999,4 +3999,5 @@ require_once 'connect.php';
         });
     </script>
 </body>
+
 </html>
