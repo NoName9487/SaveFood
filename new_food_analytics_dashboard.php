@@ -8,7 +8,7 @@
         exit();
     }
 
-    // Get user data from database
+    // Get the user data from database
     try {
         $pdo = getConnection();
         $stmt = $pdo->prepare("SELECT id, username, email, created_at, household_size, address FROM users WHERE id = ?");
@@ -3687,4 +3687,5 @@
         }
     </script>
 </body>
+
 </html>
